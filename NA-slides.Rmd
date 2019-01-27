@@ -1,0 +1,164 @@
+---
+title: "How can we deal with missing data in R?"
+author: ""
+date: "`r Sys.Date()`"
+output: ioslides_presentation
+---
+
+```{r setup, include=FALSE}
+# knitr::opts_chunk$set(echo = FALSE)
+```
+
+## What are NAs?
+
+Basic vocabulary:
+
+* `NA` stands for *not available*
+* `NaN` stands for *not a number*
+* `Inf` stands for *infinite*
+* `NULL` stands for a *null object* 
+
+But really... what are NAs?
+
+* NAs are **placeholders**
+
+## Some R quirks
+
+Most important thing to remember: NAs are **contagious**!
+
+```{r quirk1}
+NA > 1
+NA/3
+NA == NA # This last one is important!
+```
+
+## Some R quirks (2)
+
+Which items are missing? Which are not?
+```{r quirk2.1, results='hold'}
+vec <- c("R", "ladies", NA, "Paris")
+
+# Won't work
+vec == NA 
+vec != NA
+```
+
+```{r quirk2.2, results='hold'}
+# Yey!
+is.na(vec)
+!is.na(vec)
+```
+
+## Some R quirks (3)
+
+```{r quirk3, results='hold'}
+vect <- c(2, 2, 2, NA)
+
+sum(vect)
+sum(vect, na.rm = TRUE)
+```
+
+
+## How can we deal with missing values?
+
+*Ignore* the missing values and work only with complete cases
+
+* Lose key information, bias your analysis
+* Values may be missing for a reason!
+  
+*Impute* the missing values
+
+* Lots of methods!
+* But other shortcomings
+
+## Before treatment... exploration
+
+  * How many are there?
+  * Where are the missing values?
+  * Are they related?
+  * Can I make assumptions to help with the imputation?
+  
+## Simple example with `airquality`
+
+```{r libs, message=FALSE, warning=FALSE}
+# Libraries
+
+library(dplyr)
+library(zoo)   # locf imputation
+library(VIM)   # visualization
+
+# Data
+head(airquality)
+```
+
+## Some info on the data
+
+```{r exploration}
+summary(airquality)
+```
+
+## Exploration
+
+```{r rship1}
+airquality %>% 
+  group_by(Month) %>% 
+  summarise(
+    miss_ozone = sum(is.na(Ozone)), 
+    miss_solar = sum(is.na(Solar.R)),
+    miss_both  = sum(is.na(Ozone) & is.na(Solar.R)), 
+    n_month    = n()
+    )
+```
+
+## Exploration (2)
+
+```{r rship2}
+airquality %>% 
+  select(Ozone, Solar.R) %>% 
+  marginplot()
+```
+
+## Imputation
+
+```{r impute1}
+# mean imputation with dplyr
+airquality %>% 
+  mutate_at(
+    .cols = vars(Solar.R, Ozone),
+    .funs = funs(ifelse(is.na(.), mean(., na.rm = T), .))
+    ) %>% 
+  head()
+```
+
+## Imputation (2)
+
+```{r impute2}
+# mean imputation with zoo
+airquality %>% 
+  na.aggregate() %>% 
+  head()
+```
+
+## Imputation (3)
+
+```{r impute3}
+# locf imputation with zoo
+airquality %>% 
+  na.locf() %>% 
+  head()
+```
+
+
+## Links & packages
+
+More on visualization with VIM:
+<https://cran.r-project.org/web/packages/VIMGUI/vignettes/VIM-Imputation.pdf)>
+
+"Tagged" missing values (importing from STATA and SPSS):
+<http://haven.tidyverse.org/reference/tagged_na.html>
+
+Summary of different R packages for imputation
+<https://www.rstudio.com/rviews/2016/11/30/missing-values-data-science-and-r/)>
+
+More on imputation methods (in French & with some math): 
+<http://www.math.univ-toulouse.fr/~besse/Wikistat/pdf/st-m-app-idm.pdf>
